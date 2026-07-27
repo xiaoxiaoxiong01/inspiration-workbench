@@ -1073,6 +1073,8 @@ async function importBackup(e) {
     const text = await file.text();
     const backup = JSON.parse(text);
     await DB.importAll(backup);
+    // 导入数据后，标记已初始化，永不再注入示例数据
+    localStorage.setItem('dataCleared', '1');
     showToast('导入成功');
     go('home');
   } catch (err) {
@@ -1086,6 +1088,8 @@ async function clearAllData() {
   for (const s of Object.keys(DB.STORES)) {
     await DB.clear(s);
   }
+  // 标记已清空，永不再注入示例数据
+  localStorage.setItem('dataCleared', '1');
   showToast('已清空所有数据');
   go('home');
 }

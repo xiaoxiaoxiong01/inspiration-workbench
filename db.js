@@ -193,8 +193,14 @@ const DB = {
 
   // ===== 预置示例数据 =====
   async seedIfEmpty() {
-    const count = await this.getAll('materials');
-    if (count.length > 0) return false; // 已有数据，不注入
+    // 如果用户曾经清空过数据，永不再注入示例数据
+    if (localStorage.getItem('dataCleared') === '1') return false;
+
+    // 检查所有表是否都为空，有任何数据都不注入
+    for (const storeName of Object.keys(STORES)) {
+      const items = await this.getAll(storeName);
+      if (items.length > 0) return false;
+    }
 
     const now = Date.now();
     const day = 86400000;
