@@ -402,8 +402,8 @@ async function initMaterialPage() {
   const colHtml = collections.map(c => {
     const count = materials.filter(m => m.collectionId === c.id).length;
     const colorIdx = (c.name || '').charCodeAt(0) % 3;
-    return `<div class="collection-card ${['','alt','alt2'][colorIdx]}" onclick="filterByCollection('${c.id}')">
-      <div class="collection-name">${c.icon || '📁'} ${escapeHtml(c.name)}</div>
+    return `<div class="collection-card ${['','alt','alt2'][colorIdx]}" onclick="filterByCollection('${c.id}')" style="position:relative">
+      <div class="collection-name">${c.icon || '📁'} ${escapeHtml(c.name)} <span style="font-size:12px;opacity:.5;cursor:pointer" onclick="event.stopPropagation();openEditCollectionSheet('${c.id}')">✏️</span></div>
       <div class="collection-count">${count} 条素材</div>
     </div>`;
   }).join('') + `<div class="collection-card" style="background:#fff;border:2px dashed var(--lavender-light)" onclick="openNewCollectionSheet()"><div class="collection-name" style="color:var(--text-secondary)">＋ 新建</div><div class="collection-count">自定义合集</div></div>`;
@@ -579,7 +579,7 @@ async function initNotePage() {
 
   const folderId = state.currentNoteFolder;
   const folderHtml = `<div class="folder-chip ${!folderId ? 'active' : ''}" data-folder="">📂 全部</div>` +
-    folders.map(f => `<div class="folder-chip ${folderId === f.id ? 'active' : ''}" data-folder="${f.id}">${f.icon || '📁'} ${escapeHtml(f.name)}</div>`).join('') +
+    folders.map(f => `<div class="folder-chip ${folderId === f.id ? 'active' : ''}" data-folder="${f.id}">${f.icon || '📁'} ${escapeHtml(f.name)} <span style="font-size:11px;opacity:.5;cursor:pointer" onclick="event.stopPropagation();openEditFolderSheet('${f.id}')">✏️</span></div>`).join('') +
     `<div class="folder-chip" style="background:var(--lavender-bg);color:var(--lavender)" onclick="openNewFolderSheet()">＋ 新建</div>`;
   $('#noteFolders').innerHTML = folderHtml;
 
@@ -640,9 +640,17 @@ function renderNoteEdit(id) {
           </div>
         </div>
         <textarea class="editor-content-input" id="noteContentInput" placeholder="写下你的灵感…"></textarea>
+        ${id ? `<div style="margin-top:16px"><button class="btn-danger" onclick="deleteNote('${id}')">🗑️ 删除此笔记</button></div>` : ''}
       </div>
     </div>
   `;
+}
+
+async function deleteNote(id) {
+  if (!confirm('确定删除这条笔记吗？删除后无法恢复。')) return;
+  await DB.delete('notes', id);
+  showToast('已删除');
+  go('note');
 }
 
 async function initNoteEditPage() {
@@ -869,6 +877,10 @@ async function renderBookDetailContent(id) {
     html += excerpts.map(e => `<div class="note-card" style="border-left:3px solid var(--lavender)">
       <div class="note-type">${e.page ? escapeHtml(e.page) : '摘抄'} · ${timeAgo(e.createdAt)}</div>
       <div class="note-preview">"${escapeHtml(e.content)}"</div>
+      <div style="margin-top:8px;display:flex;gap:12px">
+        <span style="font-size:12px;color:var(--lavender);cursor:pointer" onclick="openEditExcerptSheet('${e.id}','${id}')">✏️ 编辑</span>
+        <span style="font-size:12px;color:#E07070;cursor:pointer" onclick="deleteExcerpt('${e.id}','${id}')">🗑️ 删除</span>
+      </div>
     </div>`).join('');
   }
   html += `</div>`;
@@ -944,9 +956,58 @@ async function initTodoPage() {
 function renderTodoItem(t) {
   return `<div class="todo-item ${t.done ? 'done' : ''}">
     <div class="todo-check ${t.done ? 'done' : ''}" data-id="${t.id}">${t.done ? '✓' : ''}</div>
-    <div class="todo-text">${escapeHtml(t.text)}</div>
+    <div class="todo-text" onclick="openEditTodoSheet('${t.id}')">${escapeHtml(t.text)}</div>
     <div class="todo-time">${escapeHtml(t.time || '')}</div>
+    <span style="font-size:18px;color:var(--text-light);cursor:pointer;padding:0 4px;" onclick="event.stopPropagation();deleteTodo('${t.id}')">×</span>
   </div>`;
+}
+
+async function deleteTodo(id) {
+  if (!confirm('确定删除这条待办吗？')) return;
+  await DB.delete('todos', id);
+  showToast('已删除');
+  initTodoPage();
+}
+
+function openEditTodoSheet(id) {
+  DB.get('todos', id).then(t => {
+    if (!t) return;
+    const html = `
+      <div class="modal-overlay open" onclick="if(event.target===this)closeModal()">
+        <div class="modal-sheet">
+          <div class="modal-handle"></div>
+          <div class="modal-title">编辑待办</div>
+          <div class="form-group">
+            <label class="form-label">内容</label>
+            <input class="form-input" id="todoTextInput" value="${escapeHtml(t.text)}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">日期</label>
+            <input class="form-input" id="todoDateInput" type="date" value="${t.date || ''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">时间（可选）</label>
+            <input class="form-input" id="todoTimeInput" type="time" value="${t.time || ''}">
+          </div>
+          <button class="btn-primary" onclick="saveEditTodo('${id}')">保存修改</button>
+          <button class="btn-secondary" onclick="closeModal()">取消</button>
+        </div>
+      </div>`;
+    modalContainer.innerHTML = html;
+  });
+}
+
+async function saveEditTodo(id) {
+  const text = $('#todoTextInput').value.trim();
+  if (!text) { showToast('请填写内容'); return; }
+  const t = await DB.get('todos', id);
+  t.text = text;
+  t.date = $('#todoDateInput').value;
+  t.time = $('#todoTimeInput').value;
+  await DB.put('todos', t);
+  showToast('已保存');
+  closeModal();
+  initTodoPage();
 }
 
 // ===== 日程 =====
@@ -986,11 +1047,83 @@ function renderScheduleItem(s) {
   const colorClass = s.color || 'peach';
   return `<div class="schedule-item">
     <div class="schedule-time">${escapeHtml(s.time || '')}</div>
-    <div class="schedule-card ${colorClass}">
+    <div class="schedule-card ${colorClass}" onclick="openEditScheduleSheet('${s.id}')" style="cursor:pointer">
       <div class="schedule-title">${escapeHtml(s.title)}</div>
       ${s.desc ? `<div class="schedule-desc">${escapeHtml(s.desc)}</div>` : ''}
+      <div style="margin-top:6px;display:flex;gap:8px">
+        <span style="font-size:11px;color:var(--text-light);cursor:pointer" onclick="event.stopPropagation();editSchedule('${s.id}')">✏️ 编辑</span>
+        <span style="font-size:11px;color:#E07070;cursor:pointer" onclick="event.stopPropagation();deleteSchedule('${s.id}')">🗑️ 删除</span>
+      </div>
     </div>
   </div>`;
+}
+
+async function deleteSchedule(id) {
+  if (!confirm('确定删除这条日程吗？')) return;
+  await DB.delete('schedules', id);
+  showToast('已删除');
+  initSchedulePage();
+}
+
+function editSchedule(id) {
+  openEditScheduleSheet(id);
+}
+
+function openEditScheduleSheet(id) {
+  DB.get('schedules', id).then(s => {
+    if (!s) return;
+    const html = `
+      <div class="modal-overlay open" onclick="if(event.target===this)closeModal()">
+        <div class="modal-sheet">
+          <div class="modal-handle"></div>
+          <div class="modal-title">编辑日程</div>
+          <div class="form-group">
+            <label class="form-label">标题</label>
+            <input class="form-input" id="schedTitleInput" value="${escapeHtml(s.title)}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">备注（可选）</label>
+            <input class="form-input" id="schedDescInput" value="${escapeHtml(s.desc || '')}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">日期</label>
+            <input class="form-input" id="schedDateInput" type="date" value="${s.date || ''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">时间</label>
+            <input class="form-input" id="schedTimeInput" type="time" value="${s.time || '09:00'}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">颜色</label>
+            <div style="display:flex;gap:8px">
+              <span class="filter-chip ${s.color==='peach'?'active':''}" data-color="peach" onclick="selectSchedColor(this)">蜜桃</span>
+              <span class="filter-chip ${s.color==='blue'?'active':''}" data-color="blue" onclick="selectSchedColor(this)">雾蓝</span>
+              <span class="filter-chip ${s.color==='lavender'?'active':''}" data-color="lavender" onclick="selectSchedColor(this)">灰紫</span>
+            </div>
+          </div>
+          <button class="btn-primary" onclick="saveEditSchedule('${id}')">保存修改</button>
+          <button class="btn-danger" onclick="closeModal();deleteSchedule('${id}')">🗑️ 删除</button>
+          <button class="btn-secondary" onclick="closeModal()">取消</button>
+        </div>
+      </div>`;
+    modalContainer.innerHTML = html;
+    state._schedColor = s.color || 'peach';
+  });
+}
+
+async function saveEditSchedule(id) {
+  const title = $('#schedTitleInput').value.trim();
+  if (!title) { showToast('请填写标题'); return; }
+  const s = await DB.get('schedules', id);
+  s.title = title;
+  s.desc = $('#schedDescInput').value.trim();
+  s.date = $('#schedDateInput').value;
+  s.time = $('#schedTimeInput').value;
+  s.color = state._schedColor || 'peach';
+  await DB.put('schedules', s);
+  showToast('已保存');
+  closeModal();
+  initSchedulePage();
 }
 
 // ===== 设置 =====
@@ -1302,6 +1435,59 @@ async function saveCollection() {
   if (state.currentPage === 'material') initMaterialPage();
 }
 
+function openEditCollectionSheet(id) {
+  DB.get('collections', id).then(c => {
+    if (!c) return;
+    const html = `
+      <div class="modal-overlay open" onclick="if(event.target===this)closeModal()">
+        <div class="modal-sheet">
+          <div class="modal-handle"></div>
+          <div class="modal-title">编辑合集</div>
+          <div class="form-group">
+            <label class="form-label">合集名称</label>
+            <input class="form-input" id="colNameInput" value="${escapeHtml(c.name)}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">图标（emoji）</label>
+            <input class="form-input" id="colIconInput" value="${escapeHtml(c.icon || '📁')}">
+          </div>
+          <button class="btn-primary" onclick="saveEditCollection('${id}')">保存修改</button>
+          <button class="btn-danger" onclick="deleteCollection('${id}')">🗑️ 删除合集</button>
+          <button class="btn-secondary" onclick="closeModal()">取消</button>
+        </div>
+      </div>`;
+    modalContainer.innerHTML = html;
+  });
+}
+
+async function saveEditCollection(id) {
+  const name = $('#colNameInput').value.trim();
+  if (!name) { showToast('请填写名称'); return; }
+  const c = await DB.get('collections', id);
+  c.name = name;
+  c.icon = $('#colIconInput').value.trim() || '📁';
+  await DB.put('collections', c);
+  showToast('已保存');
+  closeModal();
+  if (state.currentPage === 'material') initMaterialPage();
+}
+
+async function deleteCollection(id) {
+  if (!confirm('确定删除这个合集吗？合集内的素材不会被删除，只是不再归类。')) return;
+  // 把该合集下的素材的 collectionId 置空
+  const materials = await DB.getAll('materials');
+  for (const m of materials) {
+    if (m.collectionId === id) {
+      m.collectionId = null;
+      await DB.put('materials', m);
+    }
+  }
+  await DB.delete('collections', id);
+  showToast('已删除');
+  closeModal();
+  if (state.currentPage === 'material') initMaterialPage();
+}
+
 // 笔记类型选择
 function openNoteTypeSheet() {
   const html = `
@@ -1355,6 +1541,57 @@ async function saveFolder() {
   const icon = $('#folderIconInput').value.trim() || '📁';
   await DB.add('folders', { name, icon });
   showToast('已创建');
+  closeModal();
+  if (state.currentPage === 'note') initNotePage();
+}
+
+function openEditFolderSheet(id) {
+  DB.get('folders', id).then(f => {
+    if (!f) return;
+    const html = `
+      <div class="modal-overlay open" onclick="if(event.target===this)closeModal()">
+        <div class="modal-sheet">
+          <div class="modal-handle"></div>
+          <div class="modal-title">编辑文件夹</div>
+          <div class="form-group">
+            <label class="form-label">文件夹名称</label>
+            <input class="form-input" id="folderNameInput" value="${escapeHtml(f.name)}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">图标（emoji）</label>
+            <input class="form-input" id="folderIconInput" value="${escapeHtml(f.icon || '📁')}">
+          </div>
+          <button class="btn-primary" onclick="saveEditFolder('${id}')">保存修改</button>
+          <button class="btn-danger" onclick="deleteFolder('${id}')">🗑️ 删除文件夹</button>
+          <button class="btn-secondary" onclick="closeModal()">取消</button>
+        </div>
+      </div>`;
+    modalContainer.innerHTML = html;
+  });
+}
+
+async function saveEditFolder(id) {
+  const name = $('#folderNameInput').value.trim();
+  if (!name) { showToast('请填写名称'); return; }
+  const f = await DB.get('folders', id);
+  f.name = name;
+  f.icon = $('#folderIconInput').value.trim() || '📁';
+  await DB.put('folders', f);
+  showToast('已保存');
+  closeModal();
+  if (state.currentPage === 'note') initNotePage();
+}
+
+async function deleteFolder(id) {
+  if (!confirm('确定删除这个文件夹吗？文件夹内的笔记会保留，但会变成"未分类"。')) return;
+  // 把该文件夹下的笔记的 folderId 置空
+  const notes = await DB.getByIndex('notes', 'folderId', id);
+  for (const n of notes) {
+    n.folderId = null;
+    await DB.put('notes', n);
+  }
+  await DB.delete('folders', id);
+  showToast('已删除');
   closeModal();
   if (state.currentPage === 'note') initNotePage();
 }
@@ -1493,6 +1730,50 @@ async function saveExcerpt(bookId) {
   if (!content) { showToast('请填写摘抄内容'); return; }
   const page = $('#excerptPageInput').value.trim();
   await DB.add('excerpts', { bookId, content, page });
+  showToast('已保存');
+  closeModal();
+  renderBookDetailContent(bookId);
+}
+
+async function deleteExcerpt(id, bookId) {
+  if (!confirm('确定删除这条摘抄吗？')) return;
+  await DB.delete('excerpts', id);
+  showToast('已删除');
+  renderBookDetailContent(bookId);
+}
+
+function openEditExcerptSheet(id, bookId) {
+  DB.get('excerpts', id).then(e => {
+    if (!e) return;
+    const html = `
+      <div class="modal-overlay open" onclick="if(event.target===this)closeModal()">
+        <div class="modal-sheet">
+          <div class="modal-handle"></div>
+          <div class="modal-title">编辑摘抄</div>
+          <div class="form-group">
+            <label class="form-label">摘抄内容</label>
+            <textarea class="form-textarea" id="excerptContentInput" style="min-height:120px">${escapeHtml(e.content)}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">页码/章节（可选）</label>
+            <input class="form-input" id="excerptPageInput" value="${escapeHtml(e.page || '')}">
+          </div>
+          <button class="btn-primary" onclick="saveEditExcerpt('${id}','${bookId}')">保存修改</button>
+          <button class="btn-danger" onclick="closeModal();deleteExcerpt('${id}','${bookId}')">🗑️ 删除</button>
+          <button class="btn-secondary" onclick="closeModal()">取消</button>
+        </div>
+      </div>`;
+    modalContainer.innerHTML = html;
+  });
+}
+
+async function saveEditExcerpt(id, bookId) {
+  const content = $('#excerptContentInput').value.trim();
+  if (!content) { showToast('请填写内容'); return; }
+  const e = await DB.get('excerpts', id);
+  e.content = content;
+  e.page = $('#excerptPageInput').value.trim();
+  await DB.put('excerpts', e);
   showToast('已保存');
   closeModal();
   renderBookDetailContent(bookId);
