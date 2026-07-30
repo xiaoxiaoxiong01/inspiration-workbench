@@ -235,6 +235,27 @@ button,a,.clickable{touch-action:manipulation;-webkit-user-select:none;user-sele
 .status-done{background:var(--green-bg);color:var(--green);}
 .status-want{background:var(--lavender-bg);color:#9B7FC5;}
 
+/* 阅读收获样式 */
+.note-takeaway{font-size:13px;color:var(--text-secondary);margin-top:8px;padding:6px 10px;background:var(--peach-bg);border-radius:8px;line-height:1.5;}
+
+/* === 书籍封面上传裁剪 === */
+.cover-upload-area{text-align:center;padding:8px 0;}
+.cover-crop-frame{width:140px;height:140px;margin:0 auto;border-radius:10px;overflow:hidden;position:relative;background:#fff;box-shadow:var(--shadow-card);cursor:pointer;border:2px dashed var(--lavender-light);}
+.cover-crop-frame.has-image{border-style:solid;border-color:var(--lavender);}
+.cover-crop-inner{position:absolute;top:0;left:0;width:100%;height:100%;touch-action:none;}
+.cover-crop-inner img{width:100%;height:auto;}
+.cover-upload-placeholder{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:36px;opacity:.6;color:var(--lavender);}
+.cover-zoom-control{margin-top:8px;display:flex;align-items:center;gap:10px;justify-content:center;}
+.cover-zoom-control input[type=range]{width:120px;accent-color:var(--lavender);}
+.cover-hint{font-size:11px;color:var(--text-light);margin-top:2px;}
+/* 标签筛选行与下方内容间距 */
+.h-scroll{margin-bottom:6px;}
+.insp-tabs{margin-bottom:8px;}
+.note-folder-scroll + .section-title{margin-top:12px;}
+.material-collections + .section-title{margin-top:16px;}
+.book-shelf{margin-top:12px;}
+/* 书籍封面图片 */
+.book-cover img{width:100%;height:100%;object-fit:cover;border-radius:8px;}
 /* 弹层 */
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(74,68,88,.5);z-index:300;opacity:0;pointer-events:none;transition:opacity .3s;display:flex;align-items:flex-end;justify-content:center;}
 .modal-overlay.open{opacity:1;pointer-events:auto;}
@@ -627,8 +648,8 @@ const DB = {
     const bookIds = (await this.getAll('books')).map(b => b.id);
     const excerpts = [
       { bookId: bookIds[0], content: '许多年以后，面对行刑队，奥雷里亚诺·布恩迪亚上校将会回想起父亲带他去见识冰块的那个遥远的下午。', page: '第1章', createdAt: now - 3600000 },
-      { bookId: bookIds[0], content: '生命中真正重要的不是你遭遇了什么，而是你记住了哪些事，又是如何铭记的。', page: '第3章', createdAt: now - 86400000 },
-      { bookId: bookIds[1], content: '痛苦+反思=进步。面对现实时的痛苦，是改变的前提。', page: '第5章', createdAt: now - 86400000 * 2 },
+      { bookId: bookIds[0], content: '生命中真正重要的不是你遭遇了什么，而是你记住了哪些事，又是如何铭记的。', page: '第3章', createdAt: now - 86400000, readingTakeaway: '记忆塑造了我们的存在，遗忘才是真正的死亡。' },
+      { bookId: bookIds[1], content: '痛苦+反思=进步。面对现实时的痛苦，是改变的前提。', page: '第5章', createdAt: now - 86400000 * 2, readingTakeaway: '达利欧的这套反馈循环很有用，可以应用到日常复盘。' },
       { bookId: bookIds[2], content: '好的设计是让用户感觉不到设计的存在。', page: '第2章', createdAt: now - 86400000 * 3 },
       { bookId: bookIds[0], content: '孤独是一个人的狂欢，狂欢是一群人的孤独。', page: '第7章', createdAt: now - 86400000 * 4 },
       { bookId: bookIds[1], content: '不要混淆目标和欲望。', page: '第6章', createdAt: now - 86400000 * 5 },
@@ -1519,7 +1540,7 @@ async function initReadingPage() {
     : filteredBooks.map((b, i) => {
       const st = statusMap[b.status] || statusMap.want;
       return `<div class="book-card" onclick="go('bookDetail',{id:'${b.id}'})">
-        <div class="book-cover ${coverColors[i % 6]}" style="background:${coverBgs[i % 6]}">${b.cover || '📕'}</div>
+        <div class="book-cover ${coverColors[i % 6]}" style="background:${coverBgs[i % 6]}">${renderCover(b.cover)}</div>
         <div class="book-info">
           <div class="book-title">${escapeHtml(b.title)}</div>
           <div class="book-author">${escapeHtml(b.author || '')}</div>
@@ -1540,6 +1561,7 @@ async function initReadingPage() {
       return `<div class="note-card" style="border-left:3px solid var(--lavender)" onclick="${book ? `go('bookDetail',{id:'${book.id}'})` : ''}">
         <div class="note-type">📖 《${escapeHtml(book ? book.title : '未知')}》${e.page ? ' · ' + escapeHtml(e.page) : ''}</div>
         <div class="note-preview">"${escapeHtml(e.content)}"</div>
+        ${e.readingTakeaway ? '<div class="note-takeaway">💭 ' + escapeHtml(e.readingTakeaway) + '</div>' : ''}
         <div class="note-footer">
           <span class="note-date">${timeAgo(e.createdAt)}</span>
           ${cat ? `<span class="tag ${tagClass}">${escapeHtml(cat)}</span>` : ''}
@@ -1571,7 +1593,7 @@ async function renderBookDetailContent(id) {
   const st = statusMap[book.status] || statusMap.want;
 
   let html = `<div style="padding:20px 16px;text-align:center;background:linear-gradient(135deg,var(--lavender-bg),var(--mist-blue-bg))">
-    <div style="width:100px;height:133px;margin:0 auto 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:48px;box-shadow:var(--shadow-soft);background:#fff">${book.cover || '📕'}</div>
+    <div style="width:100px;height:133px;margin:0 auto 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:48px;overflow:hidden;box-shadow:var(--shadow-soft);background:#fff">${renderCover(book.cover)}</div>
     <div style="font-size:20px;font-weight:800">${escapeHtml(book.title)}</div>
     <div style="font-size:14px;color:var(--text-secondary);margin-top:4px">${escapeHtml(book.author || '')}</div>
     <div style="margin-top:8px"><span class="tag tag-peach">${escapeHtml(book.category || '未分类')}</span> <span class="book-status ${st[1]}">${st[0]}</span></div>
@@ -1585,6 +1607,7 @@ async function renderBookDetailContent(id) {
     html += excerpts.map(e => `<div class="note-card" style="border-left:3px solid var(--lavender)">
       <div class="note-type">${e.page ? escapeHtml(e.page) : '摘抄'} · ${timeAgo(e.createdAt)}</div>
       <div class="note-preview">"${escapeHtml(e.content)}"</div>
+      ${e.readingTakeaway ? '<div class="note-takeaway">💭 ' + escapeHtml(e.readingTakeaway) + '</div>' : ''}
       <div style="margin-top:8px;display:flex;gap:12px">
         <span style="font-size:12px;color:var(--lavender);cursor:pointer" onclick="openEditExcerptSheet('${e.id}','${id}')">✏️ 编辑</span>
         <span style="font-size:12px;color:#E07070;cursor:pointer" onclick="deleteExcerpt('${e.id}','${id}')">🗑️ 删除</span>
@@ -2306,6 +2329,68 @@ async function deleteFolder(id) {
   if (state.currentPage === 'note') initNotePage();
 }
 
+
+// === 封面图片裁剪 ===
+let _coverState = { zoom: 1, tx: 0, ty: 0, dataUrl: null };
+function onCoverFileChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    _coverState.dataUrl = ev.target.result;
+    const frame = document.getElementById('coverCropFrame');
+    const inner = document.getElementById('coverCropInner');
+    const img = document.getElementById('coverCropImg');
+    img.src = _coverState.dataUrl;
+    img.style.display = 'block';
+    _coverState.zoom = 1; _coverState.tx = 0; _coverState.ty = 0;
+    inner.style.transform = 'translate(0,0) scale(1)';
+    frame.classList.add('has-image');
+    const pl = frame.querySelector('.cover-upload-placeholder');
+    if (pl) pl.style.display = 'none';
+    document.getElementById('coverZoomControl').style.display = 'flex';
+    const slider = document.getElementById('coverZoomSlider');
+    const innerEl = document.getElementById('coverCropInner');
+    slider.value = 1;
+    slider.oninput = function() {
+      _coverState.zoom = parseFloat(this.value);
+      innerEl.style.transform = 'translate('+_coverState.tx+'px,'+_coverState.ty+'px) scale('+_coverState.zoom+')';
+    };
+    let drag = false, sx, sy;
+    function pd(e) { drag = true; sx = e.clientX - _coverState.tx; sy = e.clientY - _coverState.ty; inner.setPointerCapture(e.pointerId); }
+    function pm(e) { if (!drag) return; _coverState.tx = e.clientX - sx; _coverState.ty = e.clientY - sy; innerEl.style.transform = 'translate('+_coverState.tx+'px,'+_coverState.ty+'px) scale('+_coverState.zoom+')'; }
+    function pu() { drag = false; }
+    inner.addEventListener('pointerdown', pd);
+    inner.addEventListener('pointermove', pm);
+    inner.addEventListener('pointerup', pu);
+  };
+  reader.readAsDataURL(file);
+}
+function getCroppedCover() {
+  if (!_coverState.dataUrl) return '📕';
+  const frame = document.getElementById('coverCropFrame');
+  const img = document.getElementById('coverCropImg');
+  if (!img || !img.naturalWidth) return '📕';
+  const fr = frame.getBoundingClientRect();
+  const ir = img.getBoundingClientRect();
+  const c = document.createElement('canvas'); c.width = 200; c.height = 200;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img,
+    (fr.left - ir.left) / ir.width * img.naturalWidth,
+    (fr.top - ir.top) / ir.height * img.naturalHeight,
+    fr.width / ir.width * img.naturalWidth,
+    fr.height / ir.height * img.naturalHeight,
+    0, 0, 200, 200);
+  return c.toDataURL('image/jpeg', 0.8);
+}
+
+// 渲染封面（兼容emoji和上传图片）
+function renderCover(cover) {
+  if (cover && cover.indexOf('data:image') === 0) {
+    return '<img src="'+cover+'" alt="封面" style="width:100%;height:100%;object-fit:cover;border-radius:8px">';
+  }
+  return cover || '📕';
+}
 // 添加书籍
 function openAddBookSheet() {
   const html = `
@@ -2322,8 +2407,20 @@ function openAddBookSheet() {
           <input class="form-input" id="bookAuthorInput" placeholder="作者名">
         </div>
         <div class="form-group">
-          <label class="form-label">封面图标（emoji）</label>
-          <input class="form-input" id="bookCoverInput" placeholder="📕" value="📕">
+          <label class="form-label">封面图片</label>
+          <div class="cover-upload-area">
+            <div class="cover-crop-frame" id="coverCropFrame" onclick="document.getElementById('coverFileInput').click()">
+              <div class="cover-crop-inner" id="coverCropInner">
+                <img id="coverCropImg" style="display:none">
+              </div>
+              <div class="cover-upload-placeholder">📷</div>
+            </div>
+            <input type="file" id="coverFileInput" accept="image/*" style="display:none" onchange="onCoverFileChange(event)">
+            <div class="cover-zoom-control" id="coverZoomControl" style="display:none">
+              <input type="range" id="coverZoomSlider" min="1" max="3" step="0.01" value="1">
+              <span class="cover-hint">缩放 · 拖动调整位置</span>
+            </div>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">分类</label>
@@ -2355,7 +2452,7 @@ async function saveBook(id) {
   const title = $('#bookTitleInput').value.trim();
   if (!title) { showToast('请填写书名'); return; }
   const author = $('#bookAuthorInput').value.trim();
-  const cover = $('#bookCoverInput').value.trim() || '📕';
+  const cover = getCroppedCover();
   const category = $('#bookCategoryInput').value.trim() || '未分类';
   const status = state._bookStatus || 'reading';
 
@@ -2389,8 +2486,20 @@ function openEditBookSheet(id) {
             <input class="form-input" id="bookAuthorInput" value="${escapeHtml(book.author || '')}">
           </div>
           <div class="form-group">
-            <label class="form-label">封面图标（emoji）</label>
-            <input class="form-input" id="bookCoverInput" value="${escapeHtml(book.cover || '📕')}">
+            <label class="form-label">封面图片</label>
+            <div class="cover-upload-area">
+              <div class="cover-crop-frame" id="coverCropFrame" onclick="document.getElementById('coverFileInput').click()">
+                <div class="cover-crop-inner" id="coverCropInner">
+                  <img id="coverCropImg" style="display:none">
+                </div>
+                <div class="cover-upload-placeholder">📷</div>
+              </div>
+              <input type="file" id="coverFileInput" accept="image/*" style="display:none" onchange="onCoverFileChange(event)">
+              <div class="cover-zoom-control" id="coverZoomControl" style="display:none">
+                <input type="range" id="coverZoomSlider" min="1" max="3" step="0.01" value="1">
+                <span class="cover-hint">缩放 · 拖动调整位置</span>
+              </div>
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">分类</label>
@@ -2409,6 +2518,23 @@ function openEditBookSheet(id) {
         </div>
       </div>`;
     modalContainer.innerHTML = html;
+    if (book.cover && book.cover.indexOf("data:image")===0) {
+      _coverState.dataUrl = book.cover;
+      setTimeout(function() {
+        var fr = document.getElementById("coverCropFrame");
+        var inn = document.getElementById("coverCropInner");
+        var im = document.getElementById("coverCropImg");
+        if (im && fr) {
+          im.src = book.cover;
+          im.style.display = "block";
+          _coverState.zoom = 1; _coverState.tx = 0; _coverState.ty = 0;
+          inn.style.transform = "translate(0,0) scale(1)";
+          fr.classList.add("has-image");
+          var pl = fr.querySelector(".cover-upload-placeholder");
+          if (pl) pl.style.display = "none";
+        }
+      }, 50);
+    }
     state._bookStatus = book.status;
   });
 }
@@ -2428,6 +2554,10 @@ function openAddExcerptSheet(bookId) {
           <label class="form-label">页码/章节（可选）</label>
           <input class="form-input" id="excerptPageInput" placeholder="第3章 / 第45页">
         </div>
+        <div class="form-group">
+          <label class="form-label">阅读收获（可选）</label>
+          <textarea class="form-textarea" id="excerptReadingTakeawayInput" placeholder="读完这句话的想法…" style="min-height:80px"></textarea>
+        </div>
         <button class="btn-primary" onclick="saveExcerpt('${bookId}')">保存摘抄</button>
         <button class="btn-secondary" onclick="closeModal()">取消</button>
       </div>
@@ -2439,7 +2569,8 @@ async function saveExcerpt(bookId) {
   const content = $('#excerptContentInput').value.trim();
   if (!content) { showToast('请填写摘抄内容'); return; }
   const page = $('#excerptPageInput').value.trim();
-  await DB.add('excerpts', { bookId, content, page });
+  const takeaway = $('#excerptReadingTakeawayInput').value.trim();
+  await DB.add('excerpts', { bookId, content, page, readingTakeaway: takeaway || '' });
   showToast('已保存');
   closeModal();
   renderBookDetailContent(bookId);
@@ -2468,6 +2599,10 @@ function openEditExcerptSheet(id, bookId) {
             <label class="form-label">页码/章节（可选）</label>
             <input class="form-input" id="excerptPageInput" value="${escapeHtml(e.page || '')}">
           </div>
+          <div class="form-group">
+            <label class="form-label">阅读收获（可选）</label>
+            <textarea class="form-textarea" id="excerptReadingTakeawayInput" style="min-height:80px">${escapeHtml(e.readingTakeaway || '')}</textarea>
+          </div>
           <button class="btn-primary" onclick="saveEditExcerpt('${id}','${bookId}')">保存修改</button>
           <button class="btn-danger" onclick="closeModal();deleteExcerpt('${id}','${bookId}')">🗑️ 删除</button>
           <button class="btn-secondary" onclick="closeModal()">取消</button>
@@ -2483,6 +2618,7 @@ async function saveEditExcerpt(id, bookId) {
   const e = await DB.get('excerpts', id);
   e.content = content;
   e.page = $('#excerptPageInput').value.trim();
+  e.readingTakeaway = $('#excerptReadingTakeawayInput').value.trim();
   await DB.put('excerpts', e);
   showToast('已保存');
   closeModal();
@@ -2683,6 +2819,7 @@ async function doSearch(query) {
         return `<div class="note-card" style="border-left:3px solid var(--mist-blue)" onclick="${book ? `go('bookDetail',{id:'${book.id}'})` : ''}">
           <div class="note-type">📖 《${escapeHtml(book ? book.title : '未知')}》</div>
           <div class="note-preview">"${escapeHtml(e.content)}"</div>
+          ${e.readingTakeaway ? '<div class="note-takeaway">💭 ' + escapeHtml(e.readingTakeaway) + '</div>' : ''}
         </div>`;
       }).join('');
     }
