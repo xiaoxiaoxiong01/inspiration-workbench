@@ -411,6 +411,9 @@ async function initMaterialPage() {
 
   // 过滤素材
   let filtered = materials.sort((a,b) => b.createdAt - a.createdAt);
+  if (state.currentMaterialFilter.collectionId) {
+    filtered = filtered.filter(m => m.collectionId === state.currentMaterialFilter.collectionId);
+  }
   if (tag !== '全部') {
     filtered = filtered.filter(m => (m.tags || []).includes(tag));
   }
@@ -424,7 +427,12 @@ async function initMaterialPage() {
     );
   }
 
-  $('#materialCount').textContent = `${filtered.length} 条`;
+  let countText = `${filtered.length} 条`;
+  if (state.currentMaterialFilter.collectionId) {
+    const col = collections.find(c => c.id === state.currentMaterialFilter.collectionId);
+    if (col) countText = `${filtered.length} 条 · 在「${col.name}」中 <span style="color:var(--lavender);cursor:pointer;font-weight:600" onclick="clearCollectionFilter()">× 清除筛选</span>`;
+  }
+  $('#materialCount').innerHTML = countText;
 
   // 瀑布流
   const html = filtered.length === 0
@@ -455,8 +463,21 @@ async function initMaterialPage() {
 }
 
 function filterByCollection(colId) {
-  // TODO: 可扩展为按合集筛选，暂时跳转到详情查看
-  showToast('合集筛选功能开发中');
+  // 切换到只显示该合集下的素材
+  state.currentMaterialFilter.collectionId = colId;
+  state.currentMaterialFilter.tag = '全部';
+  initMaterialPage();
+  showToast('已筛选该合集素材');
+  // 滚动到素材列表
+  setTimeout(() => {
+    const wf = document.getElementById('materialWaterfall');
+    if (wf) wf.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 200);
+}
+
+function clearCollectionFilter() {
+  state.currentMaterialFilter.collectionId = null;
+  initMaterialPage();
 }
 
 // ===== 素材详情 =====
