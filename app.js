@@ -505,7 +505,7 @@ async function renderMaterialDetailContent(id) {
         </div>
         <div class="bgm-play" onclick="playBgm('${id}')">▶</div>
       </div>
-      ${m.sourceUrl ? `<div style="margin-top:10px"><div class="link-jump-btn" onclick="openExternal('${escapeHtml(m.sourceUrl)}')">🔗 跳转到${escapeHtml(m.sourcePlatform || '原平台')}播放 →</div></div>` : ''}
+      ${m.sourceUrl ? `<div style="margin-top:10px"><a href="${escapeHtml(m.sourceUrl)}" target="_blank" rel="noopener" class="link-jump-btn" style="text-decoration:none;display:flex">🔗 跳转到${escapeHtml(m.sourcePlatform || '原平台')}播放 →</a></div>` : ''}
     </div>`;
   }
 
@@ -516,7 +516,7 @@ async function renderMaterialDetailContent(id) {
 
   // 原始链接
   if (m.sourceUrl && m.type !== 'bgm') {
-    html += `<div class="detail-section"><div class="detail-label">🔗 原始链接</div><div class="link-jump-btn" onclick="openExternal('${escapeHtml(m.sourceUrl)}')">🔗 打开原始内容 →</div></div>`;
+    html += `<div class="detail-section"><div class="detail-label">🔗 原始链接</div><a href="${escapeHtml(m.sourceUrl)}" target="_blank" rel="noopener" class="link-jump-btn" style="text-decoration:none;display:flex">🔗 打开原始内容 →</a></div>`;
   }
 
   // 文字内容
