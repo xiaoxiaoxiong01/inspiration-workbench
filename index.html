@@ -267,11 +267,34 @@ button,a,.clickable{touch-action:manipulation;-webkit-user-select:none;user-sele
 .mat-upload-preview video{max-width:100%;max-height:220px;border-radius:8px;}
 .mat-upload-placeholder{font-size:14px;color:var(--text-light);padding:20px 10px;}
 .mat-upload-file-name{font-size:12px;color:var(--text-secondary);margin-top:6px;word-break:break-all;}
+/* 素材多图上传 */
+.mat-image-grid{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;}
+.mat-image-thumb{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--lavender-bg);}
+.mat-image-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.mat-image-remove{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(40,35,55,.6);color:#fff;border:none;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;}
 /* 素材卡片图片显示 */
 .insp-cover{overflow:hidden;}
 .insp-cover img,.wf-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
 .wf-thumb{overflow:hidden;}
 .detail-cover img{width:100%;height:100%;object-fit:cover;}
+.img-count-badge{position:absolute;bottom:6px;right:6px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;color:#fff;background:rgba(0,0,0,.35);backdrop-filter:blur(10px);z-index:2;}
+.detail-gallery{cursor:pointer;}
+.detail-img-count{position:absolute;top:10px;right:10px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;color:#fff;background:rgba(0,0,0,.32);backdrop-filter:blur(10px);z-index:2;}
+.detail-zoom-hint{position:absolute;bottom:10px;right:10px;width:30px;height:30px;border-radius:10px;background:rgba(0,0,0,.32);backdrop-filter:blur(10px);color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center;z-index:2;}
+/* 全屏图片查看器 */
+.img-viewer{position:fixed;inset:0;width:100%;height:100%;background:rgba(12,10,18,.96);z-index:999;overflow:hidden;}
+.img-viewer-stage{position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;touch-action:pan-y;}
+.img-viewer-track{display:flex;height:100%;transition:transform .3s cubic-bezier(.4,0,.2,1);}
+.img-viewer-slide{width:100vw;height:100%;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:calc(64px + env(safe-area-inset-top)) 0 calc(76px + env(safe-area-inset-bottom));}
+.img-viewer-slide img{max-width:100%;max-height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;}
+.img-viewer-close{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:14px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.14);border:none;color:#fff;font-size:16px;cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center;}
+.img-viewer-counter{position:fixed;top:calc(env(safe-area-inset-top) + 16px);right:16px;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:600;z-index:3;}
+.img-viewer-prev,.img-viewer-next{position:fixed;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:24px;cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center;}
+.img-viewer-prev{left:14px;}
+.img-viewer-next{right:14px;}
+.img-viewer-dots{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 20px);left:50%;transform:translateX(-50%);display:flex;gap:7px;z-index:3;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.1);}
+.img-viewer-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.38);cursor:pointer;transition:all .2s;}
+.img-viewer-dot.active{width:18px;background:#fff;}
 
 /* 弹层 */
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(74,68,88,.5);z-index:300;opacity:0;pointer-events:none;transition:opacity .3s;display:flex;align-items:flex-end;justify-content:center;}
@@ -804,6 +827,14 @@ const MATERIAL_TYPES = {
   text: { label: '文字', icon: '✏️', badge: '文字' }
 };
 
+function getMaterialImages(m) {
+  if (m && Array.isArray(m.images) && m.images.length) {
+    return m.images.filter(src => src && src.indexOf('data:image') === 0);
+  }
+  if (m && m.cover && m.cover.indexOf('data:image') === 0) return [m.cover];
+  return [];
+}
+
 const COVER_HEIGHTS = ['h1', 'h2', 'h3', 'h4'];
 const COVER_COLORS = ['c1', 'c2', 'c3', 'c4'];
 
@@ -872,7 +903,7 @@ function renderHome() {
         <button class="top-action" onclick="openMaterialAddSheet()">＋</button>
       </div>
       <div class="home-greeting">
-        <h1>${getGreeting()} ✨</h1>
+        <h1>Bearxy，${getGreeting()} 😊</h1>
         <p id="homeDateText">加载中…</p>
       </div>
       <div class="home-widgets">
@@ -962,9 +993,9 @@ async function initHomePage() {
     : recentMaterials.map(m => {
       const t = MATERIAL_TYPES[m.type] || MATERIAL_TYPES.text;
       const colorIdx = m.title ? m.title.charCodeAt(0) % 4 : 0;
-      const hasImg = m.cover && m.cover.indexOf('data:image') === 0;
+      const imgs = getMaterialImages(m);
       return `<div class="recent-item" onclick="go('materialDetail',{id:'${m.id}'})">
-        <div class="recent-thumb" style="background:${getCoverBg(colorIdx)}">${hasImg ? `<img src="${m.cover}" alt="素材图片">` : t.icon}</div>
+        <div class="recent-thumb" style="background:${getCoverBg(colorIdx)}">${imgs.length ? `<img src="${imgs[0]}" alt="素材图片">` : t.icon}${imgs.length > 1 ? `<span class="img-count-badge">${imgs.length}张</span>` : ''}</div>
         <div class="recent-info"><div class="recent-title">${escapeHtml(m.title)}</div><div class="recent-tag">${t.badge}${m.sourcePlatform ? ' · ' + m.sourcePlatform : ''}</div></div>
       </div>`;
     }).join('');
@@ -992,10 +1023,11 @@ function renderInspCard(m) {
   const t = MATERIAL_TYPES[m.type] || MATERIAL_TYPES.text;
   const colorIdx = m.title ? m.title.charCodeAt(0) % 4 : 0;
   const coverClass = `c${colorIdx + 1}`;
-  const hasImg = m.cover && m.cover.indexOf('data:image') === 0;
+  const imgs = getMaterialImages(m);
   return `<div class="insp-card" onclick="go('materialDetail',{id:'${m.id}'})">
     <div class="insp-cover ${coverClass}">
-      ${hasImg ? `<img src="${m.cover}" alt="素材图片">` : t.icon}
+      ${imgs.length ? `<img src="${imgs[0]}" alt="素材图片">` : t.icon}
+      ${imgs.length > 1 ? `<span class="img-count-badge">${imgs.length}张</span>` : ''}
       ${m.sourcePlatform ? `<span class="insp-platform">${m.sourcePlatform}</span>` : ''}
       ${m.tags && m.tags.length ? `<span class="insp-heat">🏷️ ${m.tags.length}个标签</span>` : ''}
     </div>
@@ -1167,9 +1199,9 @@ async function initMaterialPage() {
     : filtered.map((m, i) => {
       const t = MATERIAL_TYPES[m.type] || MATERIAL_TYPES.text;
       const hIdx = i % 4;
-      const hasImg = m.cover && m.cover.indexOf('data:image') === 0;
+      const imgs = getMaterialImages(m);
       return `<div class="wf-item" onclick="go('materialDetail',{id:'${m.id}'})">
-        <div class="wf-thumb ${COVER_HEIGHTS[hIdx]}" style="background:${getCoverBg(i % 4)}">${hasImg ? `<img src="${m.cover}" alt="素材图片">` : t.icon}<span class="wf-type-badge">${t.badge}</span></div>
+        <div class="wf-thumb ${COVER_HEIGHTS[hIdx]}" style="background:${getCoverBg(i % 4)}">${imgs.length ? `<img src="${imgs[0]}" alt="素材图片">` : t.icon}<span class="wf-type-badge">${t.badge}</span>${imgs.length > 1 ? `<span class="img-count-badge">${imgs.length}张</span>` : ''}</div>
         <div class="wf-info">
           <div class="wf-title">${escapeHtml(m.title || '未命名')}</div>
           <div class="wf-tags">${(m.tags || []).slice(0, 3).map(tg => `<span class="wf-mini-tag">${escapeHtml(tg)}</span>`).join('')}</div>
@@ -1231,9 +1263,15 @@ async function renderMaterialDetailContent(id) {
   const t = MATERIAL_TYPES[m.type] || MATERIAL_TYPES.text;
   const colorIdx = m.title ? m.title.charCodeAt(0) % 4 : 0;
 
+  const imgs = getMaterialImages(m);
   let html;
-  if (m.cover && m.cover.indexOf('data:image') === 0) {
-    html = `<div class="detail-cover" style="background:${getCoverBg(colorIdx)}"><img src="${m.cover}" alt="素材图片"></div>`;
+  if (imgs.length) {
+    state._viewerImages = imgs;
+    html = `<div class="detail-cover detail-gallery" style="background:${getCoverBg(colorIdx)}" onclick="openImageViewer(0)">
+      <img src="${imgs[0]}" alt="素材图片">
+      ${imgs.length > 1 ? `<span class="detail-img-count">${imgs.length}张</span>` : ''}
+      <span class="detail-zoom-hint">⛶</span>
+    </div>`;
   } else {
     html = `<div class="detail-cover c${colorIdx + 1}">${t.icon}</div>`;
   }
@@ -1297,6 +1335,90 @@ async function renderMaterialDetailContent(id) {
 
   html += `</div>`;
   $('#materialDetailContent').innerHTML = html;
+}
+
+// ===== 素材图片全屏查看 =====
+function openImageViewer(startIndex = 0) {
+  const images = state._viewerImages || [];
+  if (!images.length) return;
+  state._viewerIndex = Math.min(Math.max(0, startIndex), images.length - 1);
+  const nav = images.length > 1
+    ? `<button class="img-viewer-prev" onclick="imageViewerMove(-1)">‹</button><button class="img-viewer-next" onclick="imageViewerMove(1)">›</button>`
+    : '';
+  const dots = images.length > 1
+    ? `<div class="img-viewer-dots">${images.map((_, i) => `<span class="img-viewer-dot ${i === state._viewerIndex ? 'active' : ''}" onclick="imageViewerGo(${i})"></span>`).join('')}</div>`
+    : '';
+  const viewer = document.createElement('div');
+  viewer.className = 'img-viewer';
+  viewer.id = 'imgViewer';
+  viewer.innerHTML = `
+    <button class="img-viewer-close" onclick="closeImageViewer()" aria-label="关闭">✕</button>
+    <div class="img-viewer-counter" id="imgViewerCounter">${state._viewerIndex + 1} / ${images.length}</div>
+    <div class="img-viewer-stage" id="imgViewerStage">
+      <div class="img-viewer-track" id="imgViewerTrack">
+        ${images.map((src, i) => `<div class="img-viewer-slide"><img src="${src}" alt="图片 ${i + 1}"></div>`).join('')}
+      </div>
+    </div>
+    ${nav}
+    ${dots}`;
+  document.body.appendChild(viewer);
+  document.body.style.overflow = 'hidden';
+  updateImageViewer();
+  const stage = document.getElementById('imgViewerStage');
+  stage.addEventListener('touchstart', (e) => {
+    state._viewerTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
+  stage.addEventListener('touchend', (e) => {
+    const t = state._viewerTouch;
+    if (!t) return;
+    const dx = e.changedTouches[0].clientX - t.x;
+    const dy = e.changedTouches[0].clientY - t.y;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+      imageViewerMove(dx < 0 ? 1 : -1);
+    }
+    state._viewerTouch = null;
+  }, { passive: true });
+  document.addEventListener('keydown', imageViewerKeydown);
+}
+
+function closeImageViewer() {
+  const viewer = document.getElementById('imgViewer');
+  if (viewer) viewer.remove();
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', imageViewerKeydown);
+}
+
+function imageViewerMove(dir) {
+  const images = state._viewerImages || [];
+  const next = state._viewerIndex + dir;
+  if (next < 0 || next >= images.length) return;
+  state._viewerIndex = next;
+  updateImageViewer();
+}
+
+function imageViewerGo(i) {
+  const images = state._viewerImages || [];
+  if (i < 0 || i >= images.length) return;
+  state._viewerIndex = i;
+  updateImageViewer();
+}
+
+function updateImageViewer() {
+  const track = document.getElementById('imgViewerTrack');
+  const counter = document.getElementById('imgViewerCounter');
+  if (track) track.style.transform = `translateX(-${state._viewerIndex * 100}%)`;
+  if (counter) counter.textContent = `${state._viewerIndex + 1} / ${state._viewerImages.length}`;
+  $$('.img-viewer-dot').forEach((dot, i) => dot.classList.toggle('active', i === state._viewerIndex));
+  const prev = document.querySelector('.img-viewer-prev');
+  const next = document.querySelector('.img-viewer-next');
+  if (prev) prev.style.visibility = state._viewerIndex === 0 ? 'hidden' : 'visible';
+  if (next) next.style.visibility = state._viewerIndex === state._viewerImages.length - 1 ? 'hidden' : 'visible';
+}
+
+function imageViewerKeydown(e) {
+  if (e.key === 'Escape') closeImageViewer();
+  if (e.key === 'ArrowLeft') imageViewerMove(-1);
+  if (e.key === 'ArrowRight') imageViewerMove(1);
 }
 
 function openExternal(url) {
@@ -2064,11 +2186,11 @@ function openMaterialForm(type, existing = null) {
           <label class="form-label">上传图片</label>
           <div class="mat-upload-area" onclick="document.getElementById('matImageInput').click()">
             <div class="mat-upload-preview">
-              <img id="matImagePreview" style="display:none" alt="图片预览">
-              <div class="mat-upload-placeholder" id="matImagePlaceholder">📷 点击选择图片</div>
+              <div class="mat-image-grid" id="matImagePreviewGrid" style="display:none"></div>
+              <div class="mat-upload-placeholder" id="matImagePlaceholder">📷 点击选择图片（可多选）</div>
             </div>
           </div>
-          <input type="file" id="matImageInput" accept="image/*" style="display:none" onchange="onMatImageChange(event)">
+          <input type="file" id="matImageInput" accept="image/*" multiple style="display:none" onchange="onMatImageChange(event)">
           <div class="mat-upload-file-name" id="matImageFileName"></div>
         </div>` : ''}
 
@@ -2090,11 +2212,11 @@ function openMaterialForm(type, existing = null) {
           <label class="form-label">上传图片（可选）</label>
           <div class="mat-upload-area" onclick="document.getElementById('matImageInput').click()">
             <div class="mat-upload-preview">
-              <img id="matImagePreview" style="display:none" alt="图片预览">
-              <div class="mat-upload-placeholder" id="matImagePlaceholder">📷 点击选择图片</div>
+              <div class="mat-image-grid" id="matImagePreviewGrid" style="display:none"></div>
+              <div class="mat-upload-placeholder" id="matImagePlaceholder">📷 点击选择图片（可多选）</div>
             </div>
           </div>
-          <input type="file" id="matImageInput" accept="image/*" style="display:none" onchange="onMatImageChange(event)">
+          <input type="file" id="matImageInput" accept="image/*" multiple style="display:none" onchange="onMatImageChange(event)">
           <div class="mat-upload-file-name" id="matImageFileName"></div>
         </div>
         <div class="form-group">
@@ -2133,23 +2255,15 @@ function openMaterialForm(type, existing = null) {
   modalContainer.innerHTML = html;
 
   // 重置上传状态
-  _matImageData = null;
+  _matImages = [];
   _matVideoFile = null;
   if (existing) {
-    if (existing.cover && existing.cover.indexOf('data:image') === 0) {
-      _matImageData = existing.cover;
-      setTimeout(() => {
-        const img = document.getElementById('matImagePreview');
-        const pl = document.getElementById('matImagePlaceholder');
-        if (img && pl) {
-          img.src = existing.cover;
-          img.style.display = 'block';
-          pl.style.display = 'none';
-          const fn = document.getElementById('matImageFileName');
-          if (fn) fn.textContent = '已有图片';
-        }
-      }, 50);
-    }
+    _matImages = getMaterialImages(existing).slice();
+    setTimeout(() => {
+      renderMatImagePreviews();
+      const fn = document.getElementById('matImageFileName');
+      if (fn && _matImages.length) fn.textContent = `已有 ${_matImages.length} 张图片`;
+    }, 50);
     if (existing.videoBlob) {
       _matVideoFile = existing.videoBlob;
       setTimeout(() => {
@@ -2188,27 +2302,47 @@ function openMaterialForm(type, existing = null) {
   });
 }
 
-// 素材图片上传
-let _matImageData = null;
+// 素材图片上传（支持多图）
+let _matImages = [];
 let _matVideoFile = null;
 
 function onMatImageChange(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    _matImageData = ev.target.result;
-    const img = document.getElementById('matImagePreview');
-    const pl = document.getElementById('matImagePlaceholder');
-    const fn = document.getElementById('matImageFileName');
-    if (img && pl) {
-      img.src = _matImageData;
-      img.style.display = 'block';
-      pl.style.display = 'none';
-    }
-    if (fn) fn.textContent = '已选择：' + file.name;
-  };
-  reader.readAsDataURL(file);
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  e.target.value = '';
+  let pending = 0;
+  files.forEach(file => {
+    if (!file.type || !file.type.startsWith('image/')) return;
+    pending++;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      _matImages.push(ev.target.result);
+      pending--;
+      if (pending === 0) renderMatImagePreviews();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderMatImagePreviews() {
+  const grid = document.getElementById('matImagePreviewGrid');
+  const pl = document.getElementById('matImagePlaceholder');
+  const fn = document.getElementById('matImageFileName');
+  if (grid) {
+    grid.innerHTML = _matImages.map((src, i) => `
+      <div class="mat-image-thumb">
+        <img src="${src}" alt="图片${i + 1}">
+        <button class="mat-image-remove" onclick="removeMatImage(${i})" aria-label="删除第${i + 1}张">×</button>
+      </div>`).join('');
+    grid.style.display = _matImages.length ? 'grid' : 'none';
+  }
+  if (pl) pl.style.display = _matImages.length ? 'none' : 'block';
+  if (fn) fn.textContent = _matImages.length ? `已选择 ${_matImages.length} 张图片` : '';
+}
+
+function removeMatImage(i) {
+  _matImages.splice(i, 1);
+  renderMatImagePreviews();
 }
 
 function onMatVideoChange(e) {
@@ -2268,15 +2402,17 @@ async function saveMaterial(id) {
   if (!title) { showToast('请填写标题'); return; }
 
   const data = { type, title, sourceUrl, sourcePlatform, content, note, tags, collectionId };
-  // 上传的媒体文件
-  if (_matImageData) data.cover = _matImageData;
+  if (_matImages.length) {
+    data.images = _matImages.slice();
+    data.cover = _matImages[0];
+  }
   if (_matVideoFile) data.videoBlob = _matVideoFile;
   if (id) {
     data.id = id;
     const old = await DB.get('materials', id);
     data.createdAt = old.createdAt;
-    // 编辑时如果没有重新上传，保留原有的图片/视频
-    if (!_matImageData && old.cover) data.cover = old.cover;
+    // 编辑时保留非图片类型的原封面，图片被清空则移除
+    if (!_matImages.length && old.cover && old.cover.indexOf('data:image') !== 0) data.cover = old.cover;
     if (!_matVideoFile && old.videoBlob) data.videoBlob = old.videoBlob;
     await DB.put('materials', data);
     showToast('已保存');
@@ -3076,7 +3212,7 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     (function(){
   if('serviceWorker' in navigator){
-    var swCode = "// Service Worker - \u7f51\u7edc\u4f18\u5148\uff0c\u786e\u4fdd\u603b\u662f\u62ff\u5230\u6700\u65b0\u7248\nconst CACHE_NAME = 'workbench-v5';\nconst ASSETS = [\n  './',\n  './index.html'\n];\n\nself.addEventListener('install', (e) => {\n  e.waitUntil(\n    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())\n  );\n});\n\nself.addEventListener('activate', (e) => {\n  e.waitUntil(\n    caches.keys().then(keys =>\n      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))\n    ).then(() => self.clients.claim())\n  );\n});\n\nself.addEventListener('fetch', (e) => {\n  if (e.request.method !== 'GET') return;\n  const url = new URL(e.request.url);\n  if (url.origin !== location.origin) return;\n\n  // \u7f51\u7edc\u4f18\u5148\uff1a\u5148\u5c1d\u8bd5\u4ece\u7f51\u7edc\u83b7\u53d6\u6700\u65b0\u7248\uff0c\u5931\u8d25\u624d\u7528\u7f13\u5b58\n  e.respondWith(\n    fetch(e.request).then(response => {\n      // \u7f51\u7edc\u6210\u529f\uff0c\u66f4\u65b0\u7f13\u5b58\n      const clone = response.clone();\n      caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));\n      return response;\n    }).catch(() => {\n      // \u7f51\u7edc\u5931\u8d25\uff0c\u7528\u7f13\u5b58\n      return caches.match(e.request).then(cached => cached || new Response('\u79bb\u7ebf', { status: 503 }));\n    })\n  );\n});\n";
+    var swCode = "// Service Worker - \u7f51\u7edc\u4f18\u5148\uff0c\u786e\u4fdd\u603b\u662f\u62ff\u5230\u6700\u65b0\u7248\nconst CACHE_NAME = 'workbench-v6';\nconst ASSETS = [\n  './',\n  './index.html'\n];\n\nself.addEventListener('install', (e) => {\n  e.waitUntil(\n    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())\n  );\n});\n\nself.addEventListener('activate', (e) => {\n  e.waitUntil(\n    caches.keys().then(keys =>\n      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))\n    ).then(() => self.clients.claim())\n  );\n});\n\nself.addEventListener('fetch', (e) => {\n  if (e.request.method !== 'GET') return;\n  const url = new URL(e.request.url);\n  if (url.origin !== location.origin) return;\n\n  // \u7f51\u7edc\u4f18\u5148\uff1a\u5148\u5c1d\u8bd5\u4ece\u7f51\u7edc\u83b7\u53d6\u6700\u65b0\u7248\uff0c\u5931\u8d25\u624d\u7528\u7f13\u5b58\n  e.respondWith(\n    fetch(e.request).then(response => {\n      // \u7f51\u7edc\u6210\u529f\uff0c\u66f4\u65b0\u7f13\u5b58\n      const clone = response.clone();\n      caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));\n      return response;\n    }).catch(() => {\n      // \u7f51\u7edc\u5931\u8d25\uff0c\u7528\u7f13\u5b58\n      return caches.match(e.request).then(cached => cached || new Response('\u79bb\u7ebf', { status: 503 }));\n    })\n  );\n});\n";
     try {
       var blob = new Blob([swCode], {type: 'text/javascript'});
       var swUrl = URL.createObjectURL(blob);
