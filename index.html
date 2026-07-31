@@ -127,6 +127,8 @@ button,a,.clickable{touch-action:manipulation;-webkit-user-select:none;user-sele
 .recent-item{flex-shrink:0;width:100px;border-radius:var(--radius-md);overflow:hidden;background:#fff;box-shadow:var(--shadow-card);cursor:pointer;transition:transform .15s;}
 .recent-item:active{transform:scale(.95);}
 .recent-thumb{width:100px;height:100px;display:flex;align-items:center;justify-content:center;font-size:32px;}
+.recent-thumb img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+.recent-thumb{position:relative;overflow:hidden;}
 .recent-info{padding:8px 10px;}
 .recent-title{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .recent-tag{font-size:10px;color:var(--text-light);margin-top:2px;}
@@ -256,6 +258,21 @@ button,a,.clickable{touch-action:manipulation;-webkit-user-select:none;user-sele
 .book-shelf{margin-top:12px;}
 /* 书籍封面图片 */
 .book-cover img{width:100%;height:100%;object-fit:cover;border-radius:8px;}
+
+/* 素材上传区域 */
+.mat-upload-area{background:#fff;border-radius:var(--radius-md);border:2px dashed var(--lavender-light);padding:14px;cursor:pointer;text-align:center;transition:border-color .15s;}
+.mat-upload-area:active{border-color:var(--lavender);}
+.mat-upload-preview{position:relative;min-height:90px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.mat-upload-preview img{max-width:100%;max-height:220px;border-radius:8px;object-fit:contain;}
+.mat-upload-preview video{max-width:100%;max-height:220px;border-radius:8px;}
+.mat-upload-placeholder{font-size:14px;color:var(--text-light);padding:20px 10px;}
+.mat-upload-file-name{font-size:12px;color:var(--text-secondary);margin-top:6px;word-break:break-all;}
+/* 素材卡片图片显示 */
+.insp-cover{overflow:hidden;}
+.insp-cover img,.wf-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.wf-thumb{overflow:hidden;}
+.detail-cover img{width:100%;height:100%;object-fit:cover;}
+
 /* 弹层 */
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(74,68,88,.5);z-index:300;opacity:0;pointer-events:none;transition:opacity .3s;display:flex;align-items:flex-end;justify-content:center;}
 .modal-overlay.open{opacity:1;pointer-events:auto;}
@@ -283,7 +300,7 @@ button,a,.clickable{touch-action:manipulation;-webkit-user-select:none;user-sele
 .btn-danger{width:100%;padding:14px;border-radius:var(--radius-md);background:#fff;color:#E07070;font-size:15px;font-weight:600;border:1px solid rgba(224,112,112,.2);cursor:pointer;margin-top:8px;}
 
 /* 素材详情 */
-.detail-cover{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:64px;}
+.detail-cover{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:64px;position:relative;overflow:hidden;}
 .detail-section{padding:16px;background:#fff;border-radius:var(--radius-lg);margin:0 16px 12px;box-shadow:var(--shadow-card);}
 .detail-label{font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:8px;}
 .detail-content{font-size:14px;color:var(--text-primary);line-height:1.6;white-space:pre-wrap;}
@@ -945,8 +962,9 @@ async function initHomePage() {
     : recentMaterials.map(m => {
       const t = MATERIAL_TYPES[m.type] || MATERIAL_TYPES.text;
       const colorIdx = m.title ? m.title.charCodeAt(0) % 4 : 0;
+      const hasImg = m.cover && m.cover.indexOf('data:image') === 0;
       return `<div class="recent-item" onclick="go('materialDetail',{id:'${m.id}'})">
-        <div class="recent-thumb" style="background:${getCoverBg(colorIdx)}">${t.icon}</div>
+        <div class="recent-thumb" style="background:${getCoverBg(colorIdx)}">${hasImg ? `<img src="${m.cover}" alt="素材图片">` : t.icon}</div>
         <div class="recent-info"><div class="recent-title">${escapeHtml(m.title)}</div><div class="recent-tag">${t.badge}${m.sourcePlatform ? ' · ' + m.sourcePlatform : ''}</div></div>
       </div>`;
     }).join('');
@@ -974,9 +992,10 @@ function renderInspCard(m) {
   const t = MATERIAL_TYPES[m.type] || MATERIAL_TYPES.text;
   const colorIdx = m.title ? m.title.charCodeAt(0) % 4 : 0;
   const coverClass = `c${colorIdx + 1}`;
+  const hasImg = m.cover && m.cover.indexOf('data:image') === 0;
   return `<div class="insp-card" onclick="go('materialDetail',{id:'${m.id}'})">
     <div class="insp-cover ${coverClass}">
-      ${t.icon}
+      ${hasImg ? `<img src="${m.cover}" alt="素材图片">` : t.icon}
       ${m.sourcePlatform ? `<span class="insp-platform">${m.sourcePlatform}</span>` : ''}
       ${m.tags && m.tags.length ? `<span class="insp-heat">🏷️ ${m.tags.length}个标签</span>` : ''}
     </div>
@@ -1148,8 +1167,9 @@ async function initMaterialPage() {
     : filtered.map((m, i) => {
       const t = MATERIAL_TYPES[m.type] || MATERIAL_TYPES.text;
       const hIdx = i % 4;
+      const hasImg = m.cover && m.cover.indexOf('data:image') === 0;
       return `<div class="wf-item" onclick="go('materialDetail',{id:'${m.id}'})">
-        <div class="wf-thumb ${COVER_HEIGHTS[hIdx]}" style="background:${getCoverBg(i % 4)}">${t.icon}<span class="wf-type-badge">${t.badge}</span></div>
+        <div class="wf-thumb ${COVER_HEIGHTS[hIdx]}" style="background:${getCoverBg(i % 4)}">${hasImg ? `<img src="${m.cover}" alt="素材图片">` : t.icon}<span class="wf-type-badge">${t.badge}</span></div>
         <div class="wf-info">
           <div class="wf-title">${escapeHtml(m.title || '未命名')}</div>
           <div class="wf-tags">${(m.tags || []).slice(0, 3).map(tg => `<span class="wf-mini-tag">${escapeHtml(tg)}</span>`).join('')}</div>
@@ -1211,7 +1231,12 @@ async function renderMaterialDetailContent(id) {
   const t = MATERIAL_TYPES[m.type] || MATERIAL_TYPES.text;
   const colorIdx = m.title ? m.title.charCodeAt(0) % 4 : 0;
 
-  let html = `<div class="detail-cover c${colorIdx + 1}">${t.icon}</div>`;
+  let html;
+  if (m.cover && m.cover.indexOf('data:image') === 0) {
+    html = `<div class="detail-cover" style="background:${getCoverBg(colorIdx)}"><img src="${m.cover}" alt="素材图片"></div>`;
+  } else {
+    html = `<div class="detail-cover c${colorIdx + 1}">${t.icon}</div>`;
+  }
 
   html += `<div style="padding:16px 0">
     <div class="detail-section">
@@ -1236,6 +1261,12 @@ async function renderMaterialDetailContent(id) {
       </div>
       ${m.sourceUrl ? `<div style="margin-top:10px"><a href="${escapeHtml(extractUrl(m.sourceUrl) || m.sourceUrl)}" target="_blank" rel="noopener" class="link-jump-btn" style="text-decoration:none;display:flex">🔗 跳转到${escapeHtml(m.sourcePlatform || '原平台')}播放 →</a></div>` : ''}
     </div>`;
+  }
+
+  // 视频播放
+  if (m.videoBlob) {
+    const videoUrl = URL.createObjectURL(m.videoBlob);
+    html += `<div class="detail-section"><div class="detail-label">🎬 视频</div><video src="${videoUrl}" controls style="width:100%;border-radius:10px;background:#000"></video></div>`;
   }
 
   // 备注
@@ -1974,8 +2005,8 @@ function openMaterialAddSheet() {
         <div class="modal-title">添加素材</div>
         <div class="save-source-grid">
           <div class="source-option" onclick="openMaterialForm('link')"><div class="source-icon">🔗</div><div class="source-label">粘贴链接</div></div>
-          <div class="source-option" onclick="openMaterialForm('image')"><div class="source-icon">📷</div><div class="source-label">本地相册</div></div>
-          <div class="source-option" onclick="openMaterialForm('file')"><div class="source-icon">📁</div><div class="source-label">文件上传</div></div>
+          <div class="source-option" onclick="openMaterialForm('image')"><div class="source-icon">📷</div><div class="source-label">上传图片</div></div>
+          <div class="source-option" onclick="openMaterialForm('video')"><div class="source-icon">🎬</div><div class="source-label">上传视频</div></div>
           <div class="source-option" onclick="openMaterialForm('text')"><div class="source-icon">✏️</div><div class="source-label">文字备注</div></div>
         </div>
         <button class="btn-secondary" onclick="closeModal()">取消</button>
@@ -1988,21 +2019,22 @@ function openMaterialForm(type, existing = null) {
   const typeLabels = { link: '链接', image: '图片', video: '视频', bgm: 'BGM', text: '文字' };
   const isBgm = type === 'bgm' || (existing && existing.type === 'bgm');
   const isEdit = !!existing;
+  const effType = existing ? existing.type : type;
 
   const html = `
     <div class="modal-overlay open" onclick="if(event.target===this)closeModal()">
       <div class="modal-sheet">
         <div class="modal-handle"></div>
-        <div class="modal-title">${isEdit ? '编辑素材' : '添加' + (typeLabels[type] || '素材')}</div>
+        <div class="modal-title">${isEdit ? '编辑素材' : '添加' + (typeLabels[effType] || '素材')}</div>
 
         <div class="form-group">
           <label class="form-label">类型</label>
           <select id="matTypeSelect" class="form-input" ${isEdit ? 'disabled' : ''}>
-            <option value="image" ${type==='image'?'selected':''}>📷 图片</option>
-            <option value="video" ${type==='video'||type==='file'?'selected':''}>🎬 视频</option>
-            <option value="bgm" ${type==='bgm'?'selected':''}>🎵 BGM</option>
-            <option value="link" ${type==='link'?'selected':''}>🔗 链接</option>
-            <option value="text" ${type==='text'?'selected':''}>✏️ 文字</option>
+            <option value="image" ${effType==='image'?'selected':''}>📷 图片</option>
+            <option value="video" ${effType==='video'?'selected':''}>🎬 视频</option>
+            <option value="bgm" ${effType==='bgm'?'selected':''}>🎵 BGM</option>
+            <option value="link" ${effType==='link'?'selected':''}>🔗 链接</option>
+            <option value="text" ${effType==='text'?'selected':''}>✏️ 文字</option>
           </select>
         </div>
 
@@ -2011,7 +2043,7 @@ function openMaterialForm(type, existing = null) {
           <input class="form-input" id="matTitleInput" placeholder="给素材起个名字…" value="${existing ? escapeHtml(existing.title || '') : ''}">
         </div>
 
-        ${type === 'link' || isEdit ? `
+        ${effType === 'link' ? `
         <div class="form-group">
           <label class="form-label">链接地址</label>
           <input class="form-input" id="matUrlInput" placeholder="粘贴小红书/抖音/网易云等链接…" value="${existing ? escapeHtml(existing.sourceUrl || '') : ''}">
@@ -2021,10 +2053,60 @@ function openMaterialForm(type, existing = null) {
           <input class="form-input" id="matPlatformInput" placeholder="小红书 / 抖音 / 网易云…" value="${existing ? escapeHtml(existing.sourcePlatform || '') : ''}">
         </div>` : ''}
 
-        ${type === 'text' || (isEdit && existing.type === 'text') ? `
+        ${effType === 'text' ? `
         <div class="form-group">
           <label class="form-label">文字内容</label>
           <textarea class="form-textarea" id="matContentInput" placeholder="记录你想保存的文字…">${existing ? escapeHtml(existing.content || '') : ''}</textarea>
+        </div>` : ''}
+
+        ${effType === 'image' ? `
+        <div class="form-group">
+          <label class="form-label">上传图片</label>
+          <div class="mat-upload-area" onclick="document.getElementById('matImageInput').click()">
+            <div class="mat-upload-preview">
+              <img id="matImagePreview" style="display:none" alt="图片预览">
+              <div class="mat-upload-placeholder" id="matImagePlaceholder">📷 点击选择图片</div>
+            </div>
+          </div>
+          <input type="file" id="matImageInput" accept="image/*" style="display:none" onchange="onMatImageChange(event)">
+          <div class="mat-upload-file-name" id="matImageFileName"></div>
+        </div>` : ''}
+
+        ${effType === 'video' ? `
+        <div class="form-group">
+          <label class="form-label">上传视频</label>
+          <div class="mat-upload-area" onclick="document.getElementById('matVideoInput').click()">
+            <div class="mat-upload-preview">
+              <video id="matVideoPreview" style="display:none" controls></video>
+              <div class="mat-upload-placeholder" id="matVideoPlaceholder">🎬 点击选择视频</div>
+            </div>
+          </div>
+          <input type="file" id="matVideoInput" accept="video/*" style="display:none" onchange="onMatVideoChange(event)">
+          <div class="mat-upload-file-name" id="matVideoFileName"></div>
+        </div>` : ''}
+
+        ${effType === 'link' ? `
+        <div class="form-group">
+          <label class="form-label">上传图片（可选）</label>
+          <div class="mat-upload-area" onclick="document.getElementById('matImageInput').click()">
+            <div class="mat-upload-preview">
+              <img id="matImagePreview" style="display:none" alt="图片预览">
+              <div class="mat-upload-placeholder" id="matImagePlaceholder">📷 点击选择图片</div>
+            </div>
+          </div>
+          <input type="file" id="matImageInput" accept="image/*" style="display:none" onchange="onMatImageChange(event)">
+          <div class="mat-upload-file-name" id="matImageFileName"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">上传视频（可选）</label>
+          <div class="mat-upload-area" onclick="document.getElementById('matVideoInput').click()">
+            <div class="mat-upload-preview">
+              <video id="matVideoPreview" style="display:none" controls></video>
+              <div class="mat-upload-placeholder" id="matVideoPlaceholder">🎬 点击选择视频</div>
+            </div>
+          </div>
+          <input type="file" id="matVideoInput" accept="video/*" style="display:none" onchange="onMatVideoChange(event)">
+          <div class="mat-upload-file-name" id="matVideoFileName"></div>
         </div>` : ''}
 
         <div class="form-group">
@@ -2050,6 +2132,40 @@ function openMaterialForm(type, existing = null) {
     </div>`;
   modalContainer.innerHTML = html;
 
+  // 重置上传状态
+  _matImageData = null;
+  _matVideoFile = null;
+  if (existing) {
+    if (existing.cover && existing.cover.indexOf('data:image') === 0) {
+      _matImageData = existing.cover;
+      setTimeout(() => {
+        const img = document.getElementById('matImagePreview');
+        const pl = document.getElementById('matImagePlaceholder');
+        if (img && pl) {
+          img.src = existing.cover;
+          img.style.display = 'block';
+          pl.style.display = 'none';
+          const fn = document.getElementById('matImageFileName');
+          if (fn) fn.textContent = '已有图片';
+        }
+      }, 50);
+    }
+    if (existing.videoBlob) {
+      _matVideoFile = existing.videoBlob;
+      setTimeout(() => {
+        const vid = document.getElementById('matVideoPreview');
+        const pl = document.getElementById('matVideoPlaceholder');
+        if (vid && pl) {
+          vid.src = URL.createObjectURL(existing.videoBlob);
+          vid.style.display = 'block';
+          pl.style.display = 'none';
+          const fn = document.getElementById('matVideoFileName');
+          if (fn) fn.textContent = '已有视频';
+        }
+      }, 50);
+    }
+  }
+
   // 标签输入
   initTagInput('matTagInput', existing ? existing.tags : []);
 
@@ -2070,6 +2186,44 @@ function openMaterialForm(type, existing = null) {
     renderCols();
     state._selectedCollection = () => selectedCol;
   });
+}
+
+// 素材图片上传
+let _matImageData = null;
+let _matVideoFile = null;
+
+function onMatImageChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    _matImageData = ev.target.result;
+    const img = document.getElementById('matImagePreview');
+    const pl = document.getElementById('matImagePlaceholder');
+    const fn = document.getElementById('matImageFileName');
+    if (img && pl) {
+      img.src = _matImageData;
+      img.style.display = 'block';
+      pl.style.display = 'none';
+    }
+    if (fn) fn.textContent = '已选择：' + file.name;
+  };
+  reader.readAsDataURL(file);
+}
+
+function onMatVideoChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  _matVideoFile = file;
+  const vid = document.getElementById('matVideoPreview');
+  const pl = document.getElementById('matVideoPlaceholder');
+  const fn = document.getElementById('matVideoFileName');
+  if (vid && pl) {
+    vid.src = URL.createObjectURL(file);
+    vid.style.display = 'block';
+    pl.style.display = 'none';
+  }
+  if (fn) fn.textContent = '已选择：' + file.name;
 }
 
 function initTagInput(containerId, initialTags = []) {
@@ -2114,10 +2268,16 @@ async function saveMaterial(id) {
   if (!title) { showToast('请填写标题'); return; }
 
   const data = { type, title, sourceUrl, sourcePlatform, content, note, tags, collectionId };
+  // 上传的媒体文件
+  if (_matImageData) data.cover = _matImageData;
+  if (_matVideoFile) data.videoBlob = _matVideoFile;
   if (id) {
     data.id = id;
     const old = await DB.get('materials', id);
     data.createdAt = old.createdAt;
+    // 编辑时如果没有重新上传，保留原有的图片/视频
+    if (!_matImageData && old.cover) data.cover = old.cover;
+    if (!_matVideoFile && old.videoBlob) data.videoBlob = old.videoBlob;
     await DB.put('materials', data);
     showToast('已保存');
   } else {
